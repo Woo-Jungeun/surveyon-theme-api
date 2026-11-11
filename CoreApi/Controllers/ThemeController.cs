@@ -230,7 +230,144 @@ public class ThemeController : ControllerBase
     }
 
     /// <summary>
-    /// 4. 프로젝트별 브랜드 테마 변경 이력 조회 (POST /APIs/t/theme/history)
+    /// 4. 고객사 커스텀 브랜드 프리셋 추가 (POST /APIs/t/theme/presets/add)
+    /// </summary>
+    [HttpPost("presets/add")]
+    public async Task<IActionResult> AddThemePreset([FromBody] ThemePresetAddRequest? request, CancellationToken ct)
+    {
+        var presetName = request?.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            return Ok(ApiResponse.Error("400", "프리셋 이름(name)이 필요합니다."));
+        }
+
+        var presetCode = !string.IsNullOrWhiteSpace(request?.Code)
+            ? request!.Code!.Trim()
+            : $"CUSTOM_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+        var primaryColor = string.IsNullOrWhiteSpace(request?.Primary) ? DefaultPrimary : request!.Primary!.Trim();
+        var secondaryColor = string.IsNullOrWhiteSpace(request?.Secondary) ? DefaultSecondary : request!.Secondary!.Trim();
+        var surfaceColor = string.IsNullOrWhiteSpace(request?.Surface) ? DefaultSurface : request!.Surface!.Trim();
+        var actorUser = ResolveActorUser(request?.User);
+        var now = DateTime.UtcNow;
+
+        var existing = await _db.ThemePresets
+            .FirstOrDefaultAsync(x => x.PresetCode == presetCode, ct);
+
+        ThemePreset entity;
+        if (existing != null)
+        {
+            existing.PresetName = presetName;
+            existing.PrimaryColor = primaryColor;
+            existing.SecondaryColor = secondaryColor;
+            existing.SurfaceColor = surfaceColor;
+            existing.UseYn = "Y";
+            existing.UpdatedAt = now;
+            entity = existing;
+        }
+        else
+        {
+            entity = new ThemePreset
+            {
+                PresetCode = presetCode,
+                PresetName = presetName,
+                PrimaryColor = primaryColor,
+                SecondaryColor = secondaryColor,
+                SurfaceColor = surfaceColor,
+                IsDefault = false,
+                IsSystem = false,
+                SortOrder = 100,
+                UseYn = "Y",
+                CreatedBy = actorUser,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            _db.ThemePresets.Add(entity);
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "BrandPreset added: PresetId={PresetId}, Code={Code}, Name={Name}, User={User}",
+            entity.PresetId, entity.PresetCode, entity.PresetName, actorUser);
+
+        return Ok(ApiResponse.Ok(new
+        {
+            preset_id = entity.PresetId,
+            presetId = entity.PresetId,
+            preset_code = entity.PresetCode,
+            code = entity.PresetCode,
+            preset_name = entity.PresetName,
+            name = entity.PresetName,
+            primary_color = entity.PrimaryColor,
+            primary = entity.PrimaryColor,
+            secondary_color = entity.SecondaryColor,
+            secondary = entity.SecondaryColor,
+            surface_color = entity.SurfaceColor,
+            surface = entity.SurfaceColor,
+            is_default = entity.IsDefault,
+            isDefault = entity.IsDefault,
+            is_system = entity.IsSystem,
+            isSystem = entity.IsSystem,
+            sort_order = entity.SortOrder,
+            sortOrder = entity.SortOrder
+        }, "프리셋이 추가되었습니다."));
+    }
+
+    /// <summary>
+    /// 5. 고객사 커스텀 브랜드 프리셋 삭제 (POST /APIs/t/theme/presets/delete)
+    /// </summary>
+    [HttpPost("presets/delete")]
+    public async Task<IActionResult> DeleteThemePreset([FromBody] ThemePresetDeleteRequest? request, CancellationToken ct)
+    {
+        var presetId = request?.PresetId ?? 0;
+        var presetCode = request?.Code?.Trim() ?? string.Empty;
+
+        if (presetId <= 0 && string.IsNullOrWhiteSpace(presetCode))
+        {
+            return Ok(ApiResponse.Error("400", "삭제할 프리셋 식별자(presetId 또는 code)가 필요합니다."));
+        }
+
+        ThemePreset? entity = null;
+        if (presetId > 0)
+        {
+            entity = await _db.ThemePresets.FirstOrDefaultAsync(x => x.PresetId == presetId, ct);
+        }
+        if (entity == null && !string.IsNullOrWhiteSpace(presetCode))
+        {
+            entity = await _db.ThemePresets.FirstOrDefaultAsync(x => x.PresetCode == presetCode, ct);
+        }
+
+        if (entity == null)
+        {
+            return Ok(ApiResponse.Error("404", "삭제할 프리셋을 찾을 수 없습니다."));
+        }
+
+        if (entity.IsSystem || entity.IsDefault)
+        {
+            return Ok(ApiResponse.Error("403", "시스템 기본 프리셋은 삭제할 수 없습니다."));
+        }
+
+        entity.UseYn = "N";
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        var actorUser = ResolveActorUser(request?.User);
+        _logger.LogInformation(
+            "BrandPreset deleted: PresetId={PresetId}, Code={Code}, User={User}",
+            entity.PresetId, entity.PresetCode, actorUser);
+
+        return Ok(ApiResponse.Ok(new
+        {
+            preset_id = entity.PresetId,
+            presetId = entity.PresetId,
+            preset_code = entity.PresetCode,
+            code = entity.PresetCode
+        }, "프리셋이 삭제되었습니다."));
+    }
+
+    /// <summary>
+    /// 6. 프로젝트별 브랜드 테마 변경 이력 조회 (POST /APIs/t/theme/history)
     /// </summary>
     [HttpPost("history")]
     public async Task<IActionResult> GetThemeHistory([FromBody] ThemeHistoryRequest? request, CancellationToken ct)
@@ -332,6 +469,23 @@ public class ThemeController : ControllerBase
     public class ThemePresetRequest
     {
         public string? User { get; set; }
+    }
+
+    public class ThemePresetAddRequest
+    {
+        public string? User { get; set; }
+        public string? Code { get; set; }
+        public string? Name { get; set; }
+        public string? Primary { get; set; }
+        public string? Secondary { get; set; }
+        public string? Surface { get; set; }
+    }
+
+    public class ThemePresetDeleteRequest
+    {
+        public string? User { get; set; }
+        public int? PresetId { get; set; }
+        public string? Code { get; set; }
     }
 
     public class ThemeHistoryRequest
