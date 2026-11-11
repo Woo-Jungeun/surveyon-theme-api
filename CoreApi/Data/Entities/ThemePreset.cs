@@ -15,6 +15,7 @@ public class ThemePreset
     public bool IsSystem { get; set; } = false;
     public int SortOrder { get; set; } = 100;
     public string UseYn { get; set; } = "Y";
+    public string? TableThemeJson { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

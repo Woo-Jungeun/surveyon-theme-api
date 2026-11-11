@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SurfaceColor).HasColumnName("surface_color").HasMaxLength(20).HasDefaultValue("#EFF6FF");
             entity.Property(e => e.IsDefault).HasColumnName("is_default").HasDefaultValue(false);
             entity.Property(e => e.ExtractedPalette).HasColumnName("extracted_palette").HasColumnType("jsonb");
+            entity.Property(e => e.TableThemeJson).HasColumnName("table_theme_json").HasColumnType("jsonb");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by").HasMaxLength(50);
             entity.Property(e => e.UpdatedBy).HasColumnName("updated_by").HasMaxLength(50);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
@@ -48,6 +49,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.IsSystem).HasColumnName("is_system").HasDefaultValue(false);
             entity.Property(e => e.SortOrder).HasColumnName("sort_order").HasDefaultValue(100);
             entity.Property(e => e.UseYn).HasColumnName("use_yn").HasMaxLength(1).HasDefaultValue("Y");
+            entity.Property(e => e.TableThemeJson).HasColumnName("table_theme_json").HasColumnType("jsonb");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by").HasMaxLength(50);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
@@ -68,6 +70,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SurfaceColor).HasColumnName("surface_color").HasMaxLength(20);
             entity.Property(e => e.IsDefault).HasColumnName("is_default").HasDefaultValue(false);
             entity.Property(e => e.ExtractedPalette).HasColumnName("extracted_palette").HasColumnType("jsonb");
+            entity.Property(e => e.TableThemeJson).HasColumnName("table_theme_json").HasColumnType("jsonb");
             entity.Property(e => e.ChangedBy).HasColumnName("changed_by").HasMaxLength(50);
             entity.Property(e => e.ChangedAt).HasColumnName("changed_at");
         });

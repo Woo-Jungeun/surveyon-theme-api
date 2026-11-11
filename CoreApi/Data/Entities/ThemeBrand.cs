@@ -12,6 +12,7 @@ public class ThemeBrand
     public string SurfaceColor { get; set; } = "#EFF6FF";
     public bool IsDefault { get; set; } = false;
     public string? ExtractedPalette { get; set; }
+    public string? TableThemeJson { get; set; }
     public string? CreatedBy { get; set; }
     public string? UpdatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

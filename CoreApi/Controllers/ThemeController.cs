@@ -46,7 +46,9 @@ public class ThemeController : ControllerBase
                 secondary = DefaultSecondary,
                 surface = DefaultSurface,
                 isDefault = true,
-                extractedPalette = Array.Empty<string>()
+                extractedPalette = Array.Empty<string>(),
+                tableThemeJson = (Dictionary<string, string>?)null,
+                table_theme_json = (Dictionary<string, string>?)null
             }));
         }
 
@@ -64,9 +66,13 @@ public class ThemeController : ControllerBase
                 secondary = DefaultSecondary,
                 surface = DefaultSurface,
                 isDefault = true,
-                extractedPalette = Array.Empty<string>()
+                extractedPalette = Array.Empty<string>(),
+                tableThemeJson = (Dictionary<string, string>?)null,
+                table_theme_json = (Dictionary<string, string>?)null
             }));
         }
+
+        var parsedTableTheme = ParseTableTheme(entity.TableThemeJson);
 
         return Ok(ApiResponse.Ok(new
         {
@@ -77,6 +83,8 @@ public class ThemeController : ControllerBase
             surface = string.IsNullOrWhiteSpace(entity.SurfaceColor) ? DefaultSurface : entity.SurfaceColor,
             isDefault = entity.IsDefault,
             extractedPalette = ParsePalette(entity.ExtractedPalette),
+            tableThemeJson = parsedTableTheme,
+            table_theme_json = parsedTableTheme,
             createdBy = entity.CreatedBy,
             updatedBy = entity.UpdatedBy,
             createdAt = entity.CreatedAt,
@@ -119,6 +127,9 @@ public class ThemeController : ControllerBase
                 .ToArray() ?? Array.Empty<string>());
 
         var paletteJson = JsonSerializer.Serialize(paletteArray);
+        var tableThemeJson = isDefault
+            ? null
+            : SerializeTableTheme(request?.TableThemeJson ?? request?.TableThemeJsonSnake);
         var now = DateTime.UtcNow;
 
         var entity = await _db.ThemeBrands
@@ -135,6 +146,7 @@ public class ThemeController : ControllerBase
                 SurfaceColor = surfaceColor,
                 IsDefault = isDefault,
                 ExtractedPalette = paletteJson,
+                TableThemeJson = tableThemeJson,
                 CreatedBy = actorUser,
                 UpdatedBy = actorUser,
                 CreatedAt = now,
@@ -153,6 +165,7 @@ public class ThemeController : ControllerBase
             entity.SurfaceColor = surfaceColor;
             entity.IsDefault = isDefault;
             entity.ExtractedPalette = paletteJson;
+            entity.TableThemeJson = tableThemeJson;
             entity.UpdatedBy = actorUser;
             entity.UpdatedAt = now;
         }
@@ -166,6 +179,7 @@ public class ThemeController : ControllerBase
             SurfaceColor = surfaceColor,
             IsDefault = isDefault,
             ExtractedPalette = paletteJson,
+            TableThemeJson = tableThemeJson,
             ChangedBy = actorUser,
             ChangedAt = now
         };
@@ -177,6 +191,8 @@ public class ThemeController : ControllerBase
             "BrandTheme saved: ProjectNum={ProjectNum}, Action={Action}, IsDefault={IsDefault}, User={User}",
             projectNum, history.ActionType, isDefault, actorUser);
 
+        var savedTableTheme = ParseTableTheme(entity.TableThemeJson);
+
         return Ok(ApiResponse.Ok(new
         {
             projectnum = entity.ProjectNum,
@@ -186,6 +202,8 @@ public class ThemeController : ControllerBase
             surface = entity.SurfaceColor,
             isDefault = entity.IsDefault,
             extractedPalette = paletteArray,
+            tableThemeJson = savedTableTheme,
+            table_theme_json = savedTableTheme,
             updatedBy = entity.UpdatedBy,
             updatedAt = entity.UpdatedAt
         }, isDefault ? "기본 테마로 초기화되었습니다." : "브랜드 테마가 저장되었습니다."));
@@ -204,26 +222,32 @@ public class ThemeController : ControllerBase
             .ThenBy(x => x.PresetId)
             .ToListAsync(ct);
 
-        var result = list.Select(x => new
+        var result = list.Select(x =>
         {
-            preset_id = x.PresetId,
-            presetId = x.PresetId,
-            preset_code = x.PresetCode,
-            code = x.PresetCode,
-            preset_name = x.PresetName,
-            name = x.PresetName,
-            primary_color = x.PrimaryColor,
-            primary = x.PrimaryColor,
-            secondary_color = x.SecondaryColor,
-            secondary = x.SecondaryColor,
-            surface_color = x.SurfaceColor,
-            surface = x.SurfaceColor,
-            is_default = x.IsDefault,
-            isDefault = x.IsDefault,
-            is_system = x.IsSystem,
-            isSystem = x.IsSystem,
-            sort_order = x.SortOrder,
-            sortOrder = x.SortOrder
+            var parsedTableTheme = ParseTableTheme(x.TableThemeJson);
+            return new
+            {
+                preset_id = x.PresetId,
+                presetId = x.PresetId,
+                preset_code = x.PresetCode,
+                code = x.PresetCode,
+                preset_name = x.PresetName,
+                name = x.PresetName,
+                primary_color = x.PrimaryColor,
+                primary = x.PrimaryColor,
+                secondary_color = x.SecondaryColor,
+                secondary = x.SecondaryColor,
+                surface_color = x.SurfaceColor,
+                surface = x.SurfaceColor,
+                is_default = x.IsDefault,
+                isDefault = x.IsDefault,
+                is_system = x.IsSystem,
+                isSystem = x.IsSystem,
+                sort_order = x.SortOrder,
+                sortOrder = x.SortOrder,
+                table_theme_json = parsedTableTheme,
+                tableThemeJson = parsedTableTheme
+            };
         }).ToList();
 
         return Ok(ApiResponse.Ok(result));
@@ -248,6 +272,7 @@ public class ThemeController : ControllerBase
         var primaryColor = string.IsNullOrWhiteSpace(request?.Primary) ? DefaultPrimary : request!.Primary!.Trim();
         var secondaryColor = string.IsNullOrWhiteSpace(request?.Secondary) ? DefaultSecondary : request!.Secondary!.Trim();
         var surfaceColor = string.IsNullOrWhiteSpace(request?.Surface) ? DefaultSurface : request!.Surface!.Trim();
+        var tableThemeJson = SerializeTableTheme(request?.TableThemeJson ?? request?.TableThemeJsonSnake);
         var actorUser = ResolveActorUser(request?.User);
         var now = DateTime.UtcNow;
 
@@ -261,6 +286,7 @@ public class ThemeController : ControllerBase
             existing.PrimaryColor = primaryColor;
             existing.SecondaryColor = secondaryColor;
             existing.SurfaceColor = surfaceColor;
+            existing.TableThemeJson = tableThemeJson;
             existing.UseYn = "Y";
             existing.UpdatedAt = now;
             entity = existing;
@@ -278,6 +304,7 @@ public class ThemeController : ControllerBase
                 IsSystem = false,
                 SortOrder = 100,
                 UseYn = "Y",
+                TableThemeJson = tableThemeJson,
                 CreatedBy = actorUser,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -290,6 +317,8 @@ public class ThemeController : ControllerBase
         _logger.LogInformation(
             "BrandPreset added: PresetId={PresetId}, Code={Code}, Name={Name}, User={User}",
             entity.PresetId, entity.PresetCode, entity.PresetName, actorUser);
+
+        var parsedTableTheme = ParseTableTheme(entity.TableThemeJson);
 
         return Ok(ApiResponse.Ok(new
         {
@@ -310,7 +339,9 @@ public class ThemeController : ControllerBase
             is_system = entity.IsSystem,
             isSystem = entity.IsSystem,
             sort_order = entity.SortOrder,
-            sortOrder = entity.SortOrder
+            sortOrder = entity.SortOrder,
+            table_theme_json = parsedTableTheme,
+            tableThemeJson = parsedTableTheme
         }, "프리셋이 추가되었습니다."));
     }
 
@@ -385,27 +416,33 @@ public class ThemeController : ControllerBase
             .Take(20)
             .ToListAsync(ct);
 
-        var result = list.Select(x => new
+        var result = list.Select(x =>
         {
-            historyId = x.HistoryId,
-            history_id = x.HistoryId,
-            projectnum = x.ProjectNum,
-            project_num = x.ProjectNum,
-            actionType = x.ActionType,
-            action_type = x.ActionType,
-            primary = x.PrimaryColor,
-            primary_color = x.PrimaryColor,
-            secondary = x.SecondaryColor,
-            secondary_color = x.SecondaryColor,
-            surface = x.SurfaceColor,
-            surface_color = x.SurfaceColor,
-            isDefault = x.IsDefault,
-            is_default = x.IsDefault,
-            extractedPalette = ParsePalette(x.ExtractedPalette),
-            changedBy = x.ChangedBy,
-            changed_by = x.ChangedBy,
-            changedAt = x.ChangedAt,
-            changed_at = x.ChangedAt
+            var parsedTableTheme = ParseTableTheme(x.TableThemeJson);
+            return new
+            {
+                historyId = x.HistoryId,
+                history_id = x.HistoryId,
+                projectnum = x.ProjectNum,
+                project_num = x.ProjectNum,
+                actionType = x.ActionType,
+                action_type = x.ActionType,
+                primary = x.PrimaryColor,
+                primary_color = x.PrimaryColor,
+                secondary = x.SecondaryColor,
+                secondary_color = x.SecondaryColor,
+                surface = x.SurfaceColor,
+                surface_color = x.SurfaceColor,
+                isDefault = x.IsDefault,
+                is_default = x.IsDefault,
+                extractedPalette = ParsePalette(x.ExtractedPalette),
+                table_theme_json = parsedTableTheme,
+                tableThemeJson = parsedTableTheme,
+                changedBy = x.ChangedBy,
+                changed_by = x.ChangedBy,
+                changedAt = x.ChangedAt,
+                changed_at = x.ChangedAt
+            };
         }).ToList();
 
         return Ok(ApiResponse.Ok(result));
@@ -448,6 +485,40 @@ public class ThemeController : ControllerBase
         }
     }
 
+    private static Dictionary<string, string>? ParseTableTheme(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? SerializeTableTheme(JsonElement? element)
+    {
+        if (element == null || element.Value.ValueKind == JsonValueKind.Undefined || element.Value.ValueKind == JsonValueKind.Null)
+            return null;
+
+        if (element.Value.ValueKind == JsonValueKind.String)
+        {
+            var raw = element.Value.GetString();
+            return string.IsNullOrWhiteSpace(raw) ? null : raw;
+        }
+
+        if (element.Value.ValueKind == JsonValueKind.Object)
+        {
+            return element.Value.GetRawText();
+        }
+
+        return null;
+    }
+
     public class ThemeGetRequest
     {
         public string? User { get; set; }
@@ -464,6 +535,10 @@ public class ThemeController : ControllerBase
         public string? Surface { get; set; }
         public bool IsDefault { get; set; }
         public List<string>? ExtractedPalette { get; set; }
+        public JsonElement? TableThemeJson { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("table_theme_json")]
+        public JsonElement? TableThemeJsonSnake { get; set; }
     }
 
     public class ThemePresetRequest
@@ -479,6 +554,10 @@ public class ThemeController : ControllerBase
         public string? Primary { get; set; }
         public string? Secondary { get; set; }
         public string? Surface { get; set; }
+        public JsonElement? TableThemeJson { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("table_theme_json")]
+        public JsonElement? TableThemeJsonSnake { get; set; }
     }
 
     public class ThemePresetDeleteRequest

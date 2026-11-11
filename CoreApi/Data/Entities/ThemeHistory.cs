@@ -13,6 +13,7 @@ public class ThemeHistory
     public string SurfaceColor { get; set; } = "#EFF6FF";
     public bool IsDefault { get; set; } = false;
     public string? ExtractedPalette { get; set; }
+    public string? TableThemeJson { get; set; }
     public string? ChangedBy { get; set; }
     public DateTime ChangedAt { get; set; } = DateTime.UtcNow;
 }
