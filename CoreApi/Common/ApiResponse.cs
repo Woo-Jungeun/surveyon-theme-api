@@ -7,9 +7,6 @@ namespace CoreApi.Common;
 /// </summary>
 public class ApiResponse<T>
 {
-    [JsonPropertyName("code")]
-    public int Code { get; set; } = 200;
-
     [JsonPropertyName("success")]
     public string Success { get; set; } = "777";
 
@@ -19,18 +16,13 @@ public class ApiResponse<T>
     [JsonPropertyName("data")]
     public T? Data { get; set; }
 
-    [JsonPropertyName("timestamp")]
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-
     public static ApiResponse<T> Ok(T data, string message = "성공적으로 처리되었습니다.")
     {
         return new ApiResponse<T>
         {
-            Code = 200,
             Success = "777",
             Message = message,
-            Data = data,
-            Timestamp = DateTime.UtcNow
+            Data = data
         };
     }
 
@@ -38,11 +30,9 @@ public class ApiResponse<T>
     {
         return new ApiResponse<T>
         {
-            Code = 200,
             Success = errorCode,
             Message = message,
-            Data = data,
-            Timestamp = DateTime.UtcNow
+            Data = data
         };
     }
 }
@@ -53,11 +43,9 @@ public class ApiResponse : ApiResponse<object>
     {
         return new ApiResponse
         {
-            Code = 200,
             Success = "777",
             Message = message,
-            Data = null,
-            Timestamp = DateTime.UtcNow
+            Data = null
         };
     }
 
@@ -65,11 +53,9 @@ public class ApiResponse : ApiResponse<object>
     {
         return new ApiResponse
         {
-            Code = 200,
             Success = errorCode,
             Message = message,
-            Data = null,
-            Timestamp = DateTime.UtcNow
+            Data = null
         };
     }
 }
