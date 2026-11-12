@@ -211,13 +211,16 @@ public class ThemeController : ControllerBase
 
     /// <summary>
     /// 3. 고객사 브랜드 프리셋 목록 조회 (POST /APIs/t/theme/presets)
+    /// - 기본/시스템 프리셋(is_system, is_default) + 요청 사용자가 생성한 프리셋(created_by)만 조회
     /// </summary>
     [HttpPost("presets")]
     public async Task<IActionResult> GetThemePresets([FromBody] ThemePresetRequest? request, CancellationToken ct)
     {
+        var actorUser = ResolveActorUser(request?.User);
+
         var list = await _db.ThemePresets
             .AsNoTracking()
-            .Where(x => x.UseYn == "Y")
+            .Where(x => x.UseYn == "Y" && (x.IsSystem || x.IsDefault || x.CreatedBy == actorUser))
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.PresetId)
             .ToListAsync(ct);
@@ -245,6 +248,8 @@ public class ThemeController : ControllerBase
                 isSystem = x.IsSystem,
                 sort_order = x.SortOrder,
                 sortOrder = x.SortOrder,
+                created_by = x.CreatedBy,
+                createdBy = x.CreatedBy,
                 table_theme_json = parsedTableTheme,
                 tableThemeJson = parsedTableTheme
             };
@@ -282,11 +287,17 @@ public class ThemeController : ControllerBase
         ThemePreset entity;
         if (existing != null)
         {
+            if (existing.IsSystem || existing.IsDefault)
+            {
+                return Ok(ApiResponse.Error("403", "시스템 기본 프리셋은 수정할 수 없습니다."));
+            }
+
             existing.PresetName = presetName;
             existing.PrimaryColor = primaryColor;
             existing.SecondaryColor = secondaryColor;
             existing.SurfaceColor = surfaceColor;
             existing.TableThemeJson = tableThemeJson;
+            existing.CreatedBy = actorUser;
             existing.UseYn = "Y";
             existing.UpdatedAt = now;
             entity = existing;
@@ -340,6 +351,8 @@ public class ThemeController : ControllerBase
             isSystem = entity.IsSystem,
             sort_order = entity.SortOrder,
             sortOrder = entity.SortOrder,
+            created_by = entity.CreatedBy,
+            createdBy = entity.CreatedBy,
             table_theme_json = parsedTableTheme,
             tableThemeJson = parsedTableTheme
         }, "프리셋이 추가되었습니다."));
@@ -379,11 +392,18 @@ public class ThemeController : ControllerBase
             return Ok(ApiResponse.Error("403", "시스템 기본 프리셋은 삭제할 수 없습니다."));
         }
 
+        var actorUser = ResolveActorUser(request?.User);
+        if (!string.IsNullOrWhiteSpace(entity.CreatedBy) &&
+            !string.Equals(entity.CreatedBy, "system", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(entity.CreatedBy, actorUser, StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(ApiResponse.Error("403", "본인이 생성한 프리셋만 삭제할 수 있습니다."));
+        }
+
         entity.UseYn = "N";
         entity.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        var actorUser = ResolveActorUser(request?.User);
         _logger.LogInformation(
             "BrandPreset deleted: PresetId={PresetId}, Code={Code}, User={User}",
             entity.PresetId, entity.PresetCode, actorUser);
