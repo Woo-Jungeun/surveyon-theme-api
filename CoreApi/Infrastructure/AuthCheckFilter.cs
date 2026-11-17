@@ -69,7 +69,8 @@ public class AuthCheckFilter : IAsyncAuthorizationFilter
             return;
         }
 
-        var cacheKey = "AUTH_OK_" + token;
+        var baseUrl = ResolveAuthCoreBaseUrl(context.HttpContext.Request, _opt.AuthCoreBaseUrl);
+        var cacheKey = $"AUTH_OK_{baseUrl}_{token}";
         if (_cache.TryGetValue(cacheKey, out string? cachedUserId) && !string.IsNullOrWhiteSpace(cachedUserId))
         {
             context.HttpContext.Items["UserId"] = cachedUserId;
@@ -79,7 +80,8 @@ public class AuthCheckFilter : IAsyncAuthorizationFilter
         try
         {
             var client = _httpClientFactory.CreateClient("AuthCore");
-            using var req = new HttpRequestMessage(HttpMethod.Post, _opt.ValidatePath);
+            var validateUri = new Uri(new Uri(baseUrl), _opt.ValidatePath);
+            using var req = new HttpRequestMessage(HttpMethod.Post, validateUri);
             var jsonContent = JsonSerializer.Serialize(new ValidateRequest { user = userId });
             req.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
             req.Headers.Add(_opt.HeaderName, token.Trim());
@@ -158,5 +160,43 @@ public class AuthCheckFilter : IAsyncAuthorizationFilter
         }
 
         return userId;
+    }
+
+    private static string ResolveAuthCoreBaseUrl(HttpRequest request, string? configuredBaseUrl)
+    {
+        var candidates = new[]
+        {
+            request.Headers["X-Forwarded-Host"].ToString(),
+            request.Host.Host,
+            request.Headers["Origin"].ToString(),
+            request.Headers["Referer"].ToString()
+        };
+
+        foreach (var raw in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                continue;
+
+            if (raw.Contains("stest.hrc.kr", StringComparison.OrdinalIgnoreCase) ||
+                raw.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+                raw.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase))
+            {
+                return "https://stest.hrc.kr/APIs/o/";
+            }
+
+            if (raw.Contains("://s.hrc.kr", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(raw.Trim(), "s.hrc.kr", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("s.hrc.kr:", StringComparison.OrdinalIgnoreCase))
+            {
+                return "https://s.hrc.kr/APIs/o/";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(configuredBaseUrl))
+        {
+            return configuredBaseUrl.EndsWith("/") ? configuredBaseUrl : configuredBaseUrl + "/";
+        }
+
+        return "https://stest.hrc.kr/APIs/o/";
     }
 }
